@@ -2816,6 +2816,51 @@ def test_convert_to_parts_image_url_string() -> None:
     assert result[0].inline_data.mime_type == "image/png"
 
 
+def test_convert_to_parts_flat_image_base64_block() -> None:
+    """Test `_convert_to_parts` with flat `type=image` block."""
+    image_data = base64.b64encode(b"image-bytes").decode()
+    content = [{"type": "image", "base64": image_data, "mime_type": "image/png"}]
+    result = _convert_to_parts(content)
+    assert len(result) == 1
+    assert result[0].inline_data is not None
+    assert result[0].inline_data.mime_type == "image/png"
+    assert result[0].inline_data.data == b"image-bytes"
+
+
+def test_convert_to_parts_anthropic_image_source_base64_block() -> None:
+    """Test `_convert_to_parts` with Anthropic nested image `source` block."""
+    image_data = base64.b64encode(b"nested-image-bytes").decode()
+    content = [
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": image_data,
+            },
+        }
+    ]
+    result = _convert_to_parts(content)
+    assert len(result) == 1
+    assert result[0].inline_data is not None
+    assert result[0].inline_data.mime_type == "image/jpeg"
+    assert result[0].inline_data.data == b"nested-image-bytes"
+
+
+def test_convert_to_parts_flat_image_base64_when_not_data_content_block() -> None:
+    """Flat image blocks should still parse even if `is_data_content_block` returns false."""
+    image_data = base64.b64encode(b"image-bytes").decode()
+    content = [{"type": "image", "base64": image_data, "mime_type": "image/png"}]
+    with patch(
+        "langchain_google_genai.chat_models.is_data_content_block", return_value=False
+    ):
+        result = _convert_to_parts(content)
+    assert len(result) == 1
+    assert result[0].inline_data is not None
+    assert result[0].inline_data.mime_type == "image/png"
+    assert result[0].inline_data.data == b"image-bytes"
+
+
 def test_convert_to_parts_file_data_url() -> None:
     """Test `_convert_to_parts` with file data URL."""
     content = [

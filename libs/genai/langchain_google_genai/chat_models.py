@@ -329,9 +329,10 @@ def _convert_to_parts(
                             )
                         )
                     )
-                elif is_data_content_block(part):
+                elif is_data_content_block(part) or part.get("type") == "image":
                     # Handle both legacy LC blocks (with `source_type`) and blocks >= v1
 
+                    anthropic_source = part.get("source")
                     if "source_type" in part:
                         # Catch legacy v0 formats
                         # Safe since v1 content blocks don't have `source_type` key
@@ -342,6 +343,16 @@ def _convert_to_parts(
                         else:
                             # Unable to support IDContentBlock
                             msg = "source_type must be url or base64."
+                            raise ValueError(msg)
+                    elif isinstance(anthropic_source, Mapping):
+                        if anthropic_source.get("type") == "url":
+                            source_url = cast("str", anthropic_source.get("url"))
+                            bytes_ = image_loader._bytes_from_url(source_url)
+                        elif anthropic_source.get("type") == "base64":
+                            encoded = cast("str", anthropic_source.get("data"))
+                            bytes_ = base64.b64decode(encoded)
+                        else:
+                            msg = "Image source type must be url or base64."
                             raise ValueError(msg)
                     elif "url" in part:
                         # v1 multimodal block w/ URL
@@ -358,10 +369,24 @@ def _convert_to_parts(
 
                     mime_type = part.get("mime_type")
                     if not mime_type:
+                        if isinstance(anthropic_source, Mapping):
+                            mime_type = cast("str | None", anthropic_source.get("media_type"))
                         # Guess MIME type based on data field if not provided
                         source = cast(
                             "str",
-                            part.get("url") or part.get("base64") or part.get("data"),
+                            part.get("url")
+                            or part.get("base64")
+                            or part.get("data")
+                            or (
+                                anthropic_source.get("url")
+                                if isinstance(anthropic_source, Mapping)
+                                else None
+                            )
+                            or (
+                                anthropic_source.get("data")
+                                if isinstance(anthropic_source, Mapping)
+                                else None
+                            ),
                         )
                         mime_type, _ = mimetypes.guess_type(source)
                         if not mime_type:
