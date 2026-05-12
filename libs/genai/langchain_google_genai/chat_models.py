@@ -352,7 +352,7 @@ def _convert_to_parts(
                             encoded = cast("str", anthropic_source.get("data"))
                             bytes_ = base64.b64decode(encoded)
                         else:
-                            msg = "Image source type must be url or base64."
+                            msg = "source_type must be url or base64."
                             raise ValueError(msg)
                     elif "url" in part:
                         # v1 multimodal block w/ URL
